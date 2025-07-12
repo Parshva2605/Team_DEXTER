@@ -132,6 +132,24 @@ function setupEventListeners() {
             hideModals();
         }
     });
+
+    // Admin form event listeners
+    document.getElementById('platform-message-form')?.addEventListener('submit', handlePlatformMessage);
+    document.getElementById('ban-user-form')?.addEventListener('submit', handleBanUser);
+    
+    // Moderation tab switching
+    document.querySelectorAll('.moderation-tabs .tab-btn').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            switchModerationTab(e.target.dataset.tab);
+        });
+    });
+
+    // Admin tab switching
+    document.querySelectorAll('.admin-tab-btn').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            switchAdminTab(e.target.dataset.tab);
+        });
+    });
 }
 
 // Check authentication state
@@ -161,7 +179,7 @@ function updateAuthUI() {
         
         // Show admin link if user is admin
         const adminLink = document.querySelector('.admin-only');
-        if (ADMIN_EMAILS.includes(currentUser.email)) {
+        if (currentUser.role === 'admin' || ADMIN_EMAILS.includes(currentUser.email)) {
             adminLink.style.display = 'block';
         }
         
@@ -208,6 +226,14 @@ async function handleLogin(e) {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
         
+        // Check for admin login
+        if (email === 'admin01@gmail.com' && password === 'admin01') {
+            // Redirect to admin.html page
+            window.location.href = 'admin.html?email=admin01@gmail.com';
+            return;
+        }
+        
+        // Regular user login
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password
@@ -735,9 +761,18 @@ function showPage(pageName) {
                 break;
 
             case 'admin':
-                if (currentUser && ADMIN_EMAILS.includes(currentUser.email)) {
+                if (currentUser && (currentUser.role === 'admin' || ADMIN_EMAILS.includes(currentUser.email))) {
                     loadAdminDashboard();
                 } else {
+                    showError('Access denied. Admin privileges required.');
+                    showPage('home');
+                }
+                break;
+            case 'admin-dashboard':
+                if (currentUser && currentUser.role === 'admin') {
+                    loadAdminDashboardEnhanced();
+                } else {
+                    showError('Access denied. Admin privileges required.');
                     showPage('home');
                 }
                 break;
@@ -1199,6 +1234,7 @@ function displaySwapRequests(containerId, requests) {
 function createSwapRequestItem(request, isIncoming) {
     const item = document.createElement('div');
     item.className = 'swap-item';
+    item.setAttribute('data-request-id', request.id);
     
     const user = isIncoming ? request.requester : request.target;
     const photoUrl = user?.photo_url || 'https://via.placeholder.com/50';
@@ -1230,28 +1266,39 @@ function createSwapRequestItem(request, isIncoming) {
 
 // Get swap actions
 function getSwapActions(request, isIncoming) {
+    let actions = '';
+    
     if (request.status === 'pending') {
         if (isIncoming) {
-            return `
+            actions += `
                 <button class="btn btn-primary" onclick="handleSwapResponse('${request.id}', 'accepted')">Accept</button>
                 <button class="btn btn-secondary" onclick="handleSwapResponse('${request.id}', 'rejected')">Reject</button>
             `;
         } else {
-            return `
+            actions += `
                 <button class="btn btn-secondary" onclick="cancelSwapRequest('${request.id}')">Cancel</button>
             `;
         }
     } else if (request.status === 'accepted') {
-        return `
+        actions += `
             <button class="btn btn-primary" onclick="completeSwap('${request.id}')">Mark Complete</button>
         `;
     } else if (request.status === 'completed') {
-        return `
+        actions += `
             <button class="btn btn-primary" onclick="rateSwap('${request.id}')">Rate Experience</button>
         `;
     }
     
-    return '';
+    // Add delete option for all requests (except completed ones that haven't been rated)
+    if (request.status !== 'completed' || request.rating) {
+        actions += `
+            <button class="btn btn-danger" onclick="deleteSwapRequest('${request.id}')" style="margin-left: 8px;">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        `;
+    }
+    
+    return actions;
 }
 
 
@@ -1300,8 +1347,46 @@ async function cancelSwapRequest(requestId) {
         
         if (error) throw error;
         
+        // Immediately remove the item from the DOM for better UX
+        const swapItem = document.querySelector(`.swap-item[data-request-id="${requestId}"]`);
+        if (swapItem) {
+            swapItem.remove();
+        }
+        
+        // Also reload to ensure consistency
         loadSwapRequests();
         showSuccess('Request cancelled successfully!');
+        
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Delete swap request (for any status)
+async function deleteSwapRequest(requestId) {
+    if (!confirm('Are you sure you want to delete this swap request? This action cannot be undone.')) return;
+    
+    showLoading();
+    
+    try {
+        const { error } = await supabase
+            .from(TABLES.SWAP_REQUESTS)
+            .delete()
+            .eq('id', requestId);
+        
+        if (error) throw error;
+        
+        // Immediately remove the item from the DOM for better UX
+        const swapItem = document.querySelector(`.swap-item[data-request-id="${requestId}"]`);
+        if (swapItem) {
+            swapItem.remove();
+        }
+        
+        // Also reload to ensure consistency
+        loadSwapRequests();
+        showSuccess('Swap request deleted successfully!');
         
     } catch (error) {
         showError(error.message);
@@ -1408,34 +1493,149 @@ function switchSwapTab(tab) {
 // Load admin dashboard
 async function loadAdminDashboard() {
     try {
-        // Load stats
-        const { count: userCount } = await supabase
-            .from(TABLES.PROFILES)
-            .select('*', { count: 'exact', head: true });
-        
-        const { count: pendingSwaps } = await supabase
-            .from(TABLES.SWAP_REQUESTS)
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'pending');
-        
-        const { count: totalSwaps } = await supabase
-            .from(TABLES.SWAP_REQUESTS)
-            .select('*', { count: 'exact', head: true });
-        
-        // Update stats
-        document.getElementById('admin-user-count').textContent = userCount || 0;
-        document.getElementById('admin-pending-swaps').textContent = pendingSwaps || 0;
-        document.getElementById('admin-total-swaps').textContent = totalSwaps || 0;
+        // Check if user is admin
+        if (currentUser?.role !== 'admin') {
+            showError('Access denied. Admin privileges required.');
+            return;
+        }
+
+        showLoading();
+
+        // Load comprehensive overview data
+        await loadAdminOverview();
         
         // Load users table
         await loadUsersTable();
         
         // Load activity table
         await loadActivityTable();
+
+        hideLoading();
         
     } catch (error) {
         console.error('Admin dashboard load error:', error);
         showError('Failed to load admin dashboard');
+        hideLoading();
+    }
+}
+
+// Load admin overview with all statistics
+async function loadAdminOverview() {
+    try {
+        // Load all statistics in parallel
+        const [userCount, totalSwaps, pendingSwaps, completedSwaps, bannedUsers, avgRating] = await Promise.all([
+            supabase.from(TABLES.PROFILES).select('*', { count: 'exact', head: true }),
+            supabase.from(TABLES.SWAP_REQUESTS).select('*', { count: 'exact', head: true }),
+            supabase.from(TABLES.SWAP_REQUESTS).select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from(TABLES.SWAP_REQUESTS).select('*', { count: 'exact', head: true }).eq('status', 'completed'),
+            supabase.from(TABLES.PROFILES).select('*', { count: 'exact', head: true }).eq('status', 'banned'),
+            supabase.from(TABLES.FEEDBACK).select('rating')
+        ]);
+
+        // Calculate average rating
+        const avgRatingValue = avgRating.data && avgRating.data.length > 0 
+            ? (avgRating.data.reduce((sum, f) => sum + f.rating, 0) / avgRating.data.length).toFixed(1)
+            : '0.0';
+
+        // Update overview statistics
+        document.getElementById('total-users-overview').textContent = userCount.count || 0;
+        document.getElementById('total-swaps-overview').textContent = totalSwaps.count || 0;
+        document.getElementById('pending-swaps-overview').textContent = pendingSwaps.count || 0;
+        document.getElementById('completed-swaps-overview').textContent = completedSwaps.count || 0;
+        document.getElementById('avg-rating-overview').textContent = avgRatingValue;
+        document.getElementById('banned-users-overview').textContent = bannedUsers.count || 0;
+
+        // Load recent activity
+        await loadRecentActivity();
+
+    } catch (error) {
+        console.error('Admin overview load error:', error);
+        showError('Failed to load admin overview');
+    }
+}
+
+// Load recent activity
+async function loadRecentActivity() {
+    try {
+        // Get recent swaps
+        const { data: recentSwaps } = await supabase
+            .from(TABLES.SWAP_REQUESTS)
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        const activityContainer = document.getElementById('recent-activity');
+        
+        if (!recentSwaps || recentSwaps.length === 0) {
+            activityContainer.innerHTML = '<p>No recent activity</p>';
+            return;
+        }
+
+        const activityHTML = recentSwaps.map(swap => {
+            const activityType = swap.status === 'pending' ? 'swap' : 
+                               swap.status === 'completed' ? 'rating' : 'swap';
+            
+            const activityText = swap.status === 'pending' ? 'New swap request' :
+                               swap.status === 'completed' ? 'Swap completed' :
+                               swap.status === 'accepted' ? 'Swap accepted' :
+                               'Swap updated';
+
+            return `
+                <div class="activity-item">
+                    <div class="activity-icon ${activityType}">
+                        <i class="fas fa-${activityType === 'swap' ? 'exchange-alt' : 'star'}"></i>
+                    </div>
+                    <div class="activity-details">
+                        <h4>${activityText}</h4>
+                        <p>${swap.offered_skill} ↔ ${swap.requested_skill} • ${new Date(swap.created_at).toLocaleDateString()}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        activityContainer.innerHTML = activityHTML;
+
+    } catch (error) {
+        console.error('Recent activity load error:', error);
+    }
+}
+
+// Load admin dashboard with enhanced features
+async function loadAdminDashboardEnhanced() {
+    try {
+        // Check if user is admin
+        if (currentUser?.role !== 'admin') {
+            showError('Access denied. Admin privileges required.');
+            return;
+        }
+
+        showLoading();
+
+        // Load comprehensive stats
+        const [userCount, totalSwaps, pendingSwaps, bannedUsers] = await Promise.all([
+            supabase.from(TABLES.PROFILES).select('*', { count: 'exact', head: true }),
+            supabase.from(TABLES.SWAP_REQUESTS).select('*', { count: 'exact', head: true }),
+            supabase.from(TABLES.SWAP_REQUESTS).select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabase.from(TABLES.PROFILES).select('*', { count: 'exact', head: true }).eq('status', 'banned')
+        ]);
+
+        // Update dashboard stats
+        document.getElementById('admin-total-users').textContent = userCount.count || 0;
+        document.getElementById('admin-total-swaps-dashboard').textContent = totalSwaps.count || 0;
+        document.getElementById('admin-pending-swaps-dashboard').textContent = pendingSwaps.count || 0;
+        document.getElementById('admin-banned-users').textContent = bannedUsers.count || 0;
+
+        // Load initial data
+        await loadAllUsers();
+        await loadAllSwaps();
+        await loadPlatformMessages();
+
+        hideLoading();
+        
+    } catch (error) {
+        console.error('Admin dashboard load error:', error);
+        showError('Failed to load admin dashboard');
+        hideLoading();
     }
 }
 
@@ -1589,6 +1789,15 @@ function initializeRealtimeSubscriptions() {
             console.log('Swap request updated:', payload);
             handleSwapRequestUpdate(payload.new);
         })
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: TABLES.SWAP_REQUESTS,
+            filter: `requester_id=eq.${currentUser.id} OR target_user_id=eq.${currentUser.id}`
+        }, (payload) => {
+            console.log('Swap request deleted:', payload);
+            handleSwapRequestDelete(payload.old);
+        })
         .subscribe();
     
 
@@ -1681,6 +1890,20 @@ function handleSwapRequestUpdate(updatedRequest) {
     if (document.getElementById('swaps-page').classList.contains('active')) {
         loadSwapRequests();
     }
+}
+
+// Handle swap request deletion
+function handleSwapRequestDelete(deletedRequest) {
+    // Show notification
+    showNotification('Swap request was deleted.', 'info');
+    
+    // Update swap requests if on swaps page
+    if (document.getElementById('swaps-page').classList.contains('active')) {
+        loadSwapRequests();
+    }
+    
+    // Update notification badge
+    updateSwapNotificationBadge();
 }
 
 
@@ -1858,4 +2081,800 @@ window.handleSwapResponse = handleSwapResponse;
 window.cancelSwapRequest = cancelSwapRequest;
 window.completeSwap = completeSwap;
 window.rateSwap = rateSwap;
-window.testDatabaseConnection = testDatabaseConnection; 
+window.testDatabaseConnection = testDatabaseConnection;
+
+// ===== ENHANCED ADMIN FUNCTIONS =====
+
+// Load all users for admin management
+async function loadAllUsers() {
+    try {
+        const { data: users, error } = await supabase
+            .from(TABLES.PROFILES)
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        displayUsersTable(users || []);
+        
+    } catch (error) {
+        console.error('Users load error:', error);
+        showError('Failed to load users');
+    }
+}
+
+// Display users table
+function displayUsersTable(users) {
+    const container = document.getElementById('all-users-table');
+    
+    if (users.length === 0) {
+        container.innerHTML = '<p>No users found</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${users.map(user => `
+                    <tr data-user-id="${user.user_id}">
+                        <td>${user.name || 'N/A'}</td>
+                        <td>${user.email || 'N/A'}</td>
+                        <td>${user.location || 'N/A'}</td>
+                        <td>
+                            <span class="user-status ${user.status || 'active'}">
+                                ${user.status || 'active'}
+                            </span>
+                        </td>
+                        <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary" onclick="viewUserDetails('${user.user_id}')">
+                                View
+                            </button>
+                            ${user.status !== 'banned' ? 
+                                `<button class="btn btn-sm btn-danger" onclick="showBanUserModal('${user.user_id}')">
+                                    Ban
+                                </button>` : 
+                                `<button class="btn btn-sm btn-success" onclick="unbanUser('${user.user_id}')">
+                                    Unban
+                                </button>`
+                            }
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// Filter users
+function filterUsers() {
+    const searchTerm = document.getElementById('user-search').value.toLowerCase();
+    const statusFilter = document.getElementById('user-status-filter').value;
+    const rows = document.querySelectorAll('.users-table tbody tr');
+    
+    rows.forEach(row => {
+        const name = row.cells[0].textContent.toLowerCase();
+        const email = row.cells[1].textContent.toLowerCase();
+        const status = row.cells[3].textContent.toLowerCase();
+        
+        const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
+        const matchesStatus = !statusFilter || status === statusFilter;
+        
+        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+    });
+}
+
+// Load all swaps for admin management
+async function loadAllSwaps() {
+    try {
+        const { data: swaps, error } = await supabase
+            .from(TABLES.SWAP_REQUESTS)
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        displaySwapsTable(swaps || []);
+        
+    } catch (error) {
+        console.error('Swaps load error:', error);
+        showError('Failed to load swaps');
+    }
+}
+
+// Display swaps table
+function displaySwapsTable(swaps) {
+    const container = document.getElementById('all-swaps-table');
+    
+    if (swaps.length === 0) {
+        container.innerHTML = '<p>No swaps found</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <table class="swaps-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Requester</th>
+                    <th>Target</th>
+                    <th>Offers</th>
+                    <th>Wants</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${swaps.map(swap => `
+                    <tr data-swap-id="${swap.id}">
+                        <td>${new Date(swap.created_at).toLocaleDateString()}</td>
+                        <td>${swap.requester_id}</td>
+                        <td>${swap.target_user_id}</td>
+                        <td>${swap.offered_skill}</td>
+                        <td>${swap.requested_skill}</td>
+                        <td>
+                            <span class="swap-status ${swap.status}">${swap.status}</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary" onclick="viewSwapDetails('${swap.id}')">
+                                View
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteSwapAdmin('${swap.id}')">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// Filter swaps
+function filterSwaps() {
+    const statusFilter = document.getElementById('swap-status-filter').value;
+    const dateFilter = document.getElementById('swap-date-filter').value;
+    const rows = document.querySelectorAll('.swaps-table tbody tr');
+    
+    rows.forEach(row => {
+        const status = row.cells[5].textContent.toLowerCase();
+        const date = row.cells[0].textContent;
+        
+        const matchesStatus = !statusFilter || status === statusFilter;
+        const matchesDate = !dateFilter || date.includes(dateFilter);
+        
+        row.style.display = matchesStatus && matchesDate ? '' : 'none';
+    });
+}
+
+// Load pending reviews
+async function loadPendingReviews() {
+    try {
+        // This would typically load skills that need moderation
+        // For now, we'll show a placeholder
+        const skillsReview = document.getElementById('skills-review');
+        skillsReview.innerHTML = `
+            <div class="pending-review-item">
+                <h4>Skill Review Needed</h4>
+                <p>No skills currently pending review.</p>
+            </div>
+        `;
+        
+        const userReports = document.getElementById('user-reports');
+        userReports.innerHTML = `
+            <div class="pending-review-item">
+                <h4>User Reports</h4>
+                <p>No user reports currently pending.</p>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Pending reviews load error:', error);
+        showError('Failed to load pending reviews');
+    }
+}
+
+// Load platform messages
+async function loadPlatformMessages() {
+    try {
+        // This would load platform messages from a messages table
+        // For now, we'll show a placeholder
+        const container = document.getElementById('platform-messages');
+        container.innerHTML = `
+            <div class="message-item">
+                <h4>Welcome to Skill Swap!</h4>
+                <p>Welcome to our platform. We're excited to have you here!</p>
+                <div class="message-meta">
+                    <span>Type: Information</span>
+                    <span>Sent: ${new Date().toLocaleDateString()}</span>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Platform messages load error:', error);
+        showError('Failed to load platform messages');
+    }
+}
+
+// Show send message modal
+function showSendMessageModal() {
+    document.getElementById('send-message-modal').style.display = 'block';
+}
+
+// Show ban user modal
+function showBanUserModal(userId) {
+    window.currentBanUserId = userId;
+    document.getElementById('ban-user-modal').style.display = 'block';
+}
+
+// Ban user
+async function banUser(userId) {
+    try {
+        const reason = document.getElementById('ban-reason').value;
+        const duration = document.getElementById('ban-duration').value;
+        
+        if (!reason) {
+            showError('Please provide a reason for the ban');
+            return;
+        }
+        
+        const { error } = await supabase
+            .from(TABLES.PROFILES)
+            .update({ 
+                status: 'banned',
+                ban_reason: reason,
+                ban_duration: duration,
+                banned_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
+        
+        if (error) throw error;
+        
+        hideModals();
+        showSuccess('User banned successfully');
+        loadAllUsers();
+        
+    } catch (error) {
+        showError('Failed to ban user: ' + error.message);
+    }
+}
+
+// Unban user
+async function unbanUser(userId) {
+    if (!confirm('Are you sure you want to unban this user?')) return;
+    
+    try {
+        const { error } = await supabase
+            .from(TABLES.PROFILES)
+            .update({ 
+                status: 'active',
+                ban_reason: null,
+                ban_duration: null,
+                banned_at: null
+            })
+            .eq('user_id', userId);
+        
+        if (error) throw error;
+        
+        showSuccess('User unbanned successfully');
+        loadAllUsers();
+        
+    } catch (error) {
+        showError('Failed to unban user: ' + error.message);
+    }
+}
+
+// Delete swap as admin
+async function deleteSwapAdmin(swapId) {
+    if (!confirm('Are you sure you want to delete this swap?')) return;
+    
+    try {
+        const { error } = await supabase
+            .from(TABLES.SWAP_REQUESTS)
+            .delete()
+            .eq('id', swapId);
+        
+        if (error) throw error;
+        
+        showSuccess('Swap deleted successfully');
+        loadAllSwaps();
+        
+    } catch (error) {
+        showError('Failed to delete swap: ' + error.message);
+    }
+}
+
+// Generate report
+async function generateReport() {
+    try {
+        showLoading();
+        
+        // This would generate a comprehensive report
+        // For now, we'll show a success message
+        setTimeout(() => {
+            hideLoading();
+            showSuccess('Report generated successfully!');
+        }, 2000);
+        
+    } catch (error) {
+        hideLoading();
+        showError('Failed to generate report: ' + error.message);
+    }
+}
+
+// Download user report
+function downloadUserReport() {
+    // This would generate and download a CSV file
+    showSuccess('User report download started');
+}
+
+// Download swap report
+function downloadSwapReport() {
+    // This would generate and download a CSV file
+    showSuccess('Swap report download started');
+}
+
+// Download feedback report
+function downloadFeedbackReport() {
+    // This would generate and download a CSV file
+    showSuccess('Feedback report download started');
+}
+
+// View user details
+function viewUserDetails(userId) {
+    // This would show detailed user information
+    showSuccess('User details loaded');
+}
+
+// View swap details
+function viewSwapDetails(swapId) {
+    // This would show detailed swap information
+    showSuccess('Swap details loaded');
+}
+
+// Approve skill
+function approveSkill() {
+    // This would approve a skill for moderation
+    hideModals();
+    showSuccess('Skill approved');
+}
+
+// Reject skill
+function rejectSkill() {
+    // This would reject a skill for moderation
+    hideModals();
+    showSuccess('Skill rejected');
+}
+
+// Handle platform message submission
+async function handlePlatformMessage(e) {
+    e.preventDefault();
+    
+    try {
+        const title = document.getElementById('message-title').value;
+        const content = document.getElementById('message-content').value;
+        const type = document.getElementById('message-type').value;
+        
+        // This would save the message to a messages table
+        // For now, we'll just show a success message
+        showSuccess('Platform message sent successfully!');
+        hideModals();
+        
+        // Reset form
+        e.target.reset();
+        
+    } catch (error) {
+        showError('Failed to send platform message: ' + error.message);
+    }
+}
+
+// Handle ban user form submission
+async function handleBanUser(e) {
+    e.preventDefault();
+    
+    try {
+        if (!window.currentBanUserId) {
+            showError('No user selected for banning');
+            return;
+        }
+        
+        await banUser(window.currentBanUserId);
+        
+        // Reset form
+        e.target.reset();
+        window.currentBanUserId = null;
+        
+    } catch (error) {
+        showError('Failed to ban user: ' + error.message);
+    }
+}
+
+// Switch moderation tabs
+function switchModerationTab(tab) {
+    document.querySelectorAll('.moderation-tabs .tab-btn').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.moderation-content').forEach(c => c.classList.remove('active'));
+    
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    document.getElementById(`${tab}-review`).classList.add('active');
+}
+
+// Switch admin tabs
+function switchAdminTab(tab) {
+    document.querySelectorAll('.admin-tab-btn').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+    
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    document.getElementById(`${tab}-tab`).classList.add('active');
+    
+    // Load tab-specific content
+    switch (tab) {
+        case 'overview':
+            loadAdminOverview();
+            break;
+        case 'users':
+            loadAllUsersAdmin();
+            break;
+        case 'swaps':
+            loadAllSwapsAdmin();
+            break;
+        case 'reports':
+            // Reports are handled by onclick events
+            break;
+    }
+}
+
+// Load all users for admin page
+async function loadAllUsersAdmin() {
+    try {
+        showLoading();
+        
+        const { data: users, error } = await supabase
+            .from(TABLES.PROFILES)
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        displayUsersTableAdmin(users || []);
+        
+        hideLoading();
+        
+    } catch (error) {
+        console.error('Users load error:', error);
+        showError('Failed to load users');
+        hideLoading();
+    }
+}
+
+// Display users table for admin page
+function displayUsersTableAdmin(users) {
+    const container = document.getElementById('admin-users-container');
+    
+    if (users.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No users found</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <table class="admin-users-table">
+            <thead>
+                <tr>
+                    <th>User Details</th>
+                    <th>Contact</th>
+                    <th>Skills</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${users.map(user => `
+                    <tr data-user-id="${user.user_id}">
+                        <td>
+                            <div class="user-details-cell">
+                                <img src="${user.photo_url || 'https://via.placeholder.com/40'}" alt="${user.name}" class="user-avatar">
+                                <div class="user-info">
+                                    <h4>${user.name || 'N/A'}</h4>
+                                    <p>${user.location || 'Location not specified'}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
+                                <p><strong>Phone:</strong> ${user.phone || 'Not provided'}</p>
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <p><strong>Offers:</strong> ${(user.skills_offered || []).slice(0, 3).join(', ')}${(user.skills_offered || []).length > 3 ? '...' : ''}</p>
+                                <p><strong>Wants:</strong> ${(user.skills_wanted || []).slice(0, 3).join(', ')}${(user.skills_wanted || []).length > 3 ? '...' : ''}</p>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="user-status ${user.status || 'active'}">
+                                ${user.status || 'active'}
+                            </span>
+                            ${user.status === 'banned' ? `<br><small>${user.ban_reason || 'No reason provided'}</small>` : ''}
+                        </td>
+                        <td>
+                            <div>
+                                <p>${new Date(user.created_at).toLocaleDateString()}</p>
+                                <small>${new Date(user.created_at).toLocaleTimeString()}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-sm btn-secondary" onclick="viewUserDetailsAdmin('${user.user_id}')">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                ${user.status !== 'banned' ? 
+                                    `<button class="btn btn-sm btn-danger" onclick="showBanUserModal('${user.user_id}')">
+                                        <i class="fas fa-ban"></i> Ban
+                                    </button>` : 
+                                    `<button class="btn btn-sm btn-success" onclick="unbanUser('${user.user_id}')">
+                                        <i class="fas fa-check"></i> Unban
+                                    </button>`
+                                }
+                                <button class="btn btn-sm btn-warning" onclick="editUserAdmin('${user.user_id}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// Load all swaps for admin page
+async function loadAllSwapsAdmin() {
+    try {
+        showLoading();
+        
+        const { data: swaps, error } = await supabase
+            .from(TABLES.SWAP_REQUESTS)
+            .select(`
+                *,
+                requester:profiles!requester_id(name, photo_url),
+                target:profiles!target_user_id(name, photo_url)
+            `)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        displaySwapsTableAdmin(swaps || []);
+        
+        hideLoading();
+        
+    } catch (error) {
+        console.error('Swaps load error:', error);
+        showError('Failed to load swaps');
+        hideLoading();
+    }
+}
+
+// Display swaps table for admin page
+function displaySwapsTableAdmin(swaps) {
+    const container = document.getElementById('admin-swaps-container');
+    
+    if (swaps.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No swaps found</p>';
+        return;
+    }
+    
+    container.innerHTML = `
+        <table class="admin-swaps-table">
+            <thead>
+                <tr>
+                    <th>Swap Details</th>
+                    <th>Users</th>
+                    <th>Skills</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${swaps.map(swap => `
+                    <tr data-swap-id="${swap.id}">
+                        <td>
+                            <div class="swap-details-cell">
+                                <div class="swap-users">
+                                    <strong>${swap.requester?.name || 'Unknown'} ↔ ${swap.target?.name || 'Unknown'}</strong>
+                                </div>
+                                <div class="swap-skills">
+                                    <strong>Offers:</strong> ${swap.offered_skill}
+                                </div>
+                                <div class="swap-skills">
+                                    <strong>Wants:</strong> ${swap.requested_skill}
+                                </div>
+                                ${swap.message ? `<div class="swap-message">"${swap.message}"</div>` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <img src="${swap.requester?.photo_url || 'https://via.placeholder.com/30'}" alt="Requester" style="width: 30px; height: 30px; border-radius: 50%;">
+                                <span>→</span>
+                                <img src="${swap.target?.photo_url || 'https://via.placeholder.com/30'}" alt="Target" style="width: 30px; height: 30px; border-radius: 50%;">
+                            </div>
+                        </td>
+                        <td>
+                            <div>
+                                <p><strong>Offers:</strong> ${swap.offered_skill}</p>
+                                <p><strong>Wants:</strong> ${swap.requested_skill}</p>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="swap-status ${swap.status}">${swap.status}</span>
+                            <br>
+                            <small>${new Date(swap.updated_at || swap.created_at).toLocaleDateString()}</small>
+                        </td>
+                        <td>
+                            <div>
+                                <p><strong>Created:</strong> ${new Date(swap.created_at).toLocaleDateString()}</p>
+                                <small>${new Date(swap.created_at).toLocaleTimeString()}</small>
+                                ${swap.updated_at && swap.updated_at !== swap.created_at ? 
+                                    `<br><p><strong>Updated:</strong> ${new Date(swap.updated_at).toLocaleDateString()}</p>` : ''
+                                }
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-sm btn-secondary" onclick="viewSwapDetailsAdmin('${swap.id}')">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteSwapAdmin('${swap.id}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                ${swap.status === 'pending' ? 
+                                    `<button class="btn btn-sm btn-success" onclick="approveSwapAdmin('${swap.id}')">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>` : ''
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// Filter users for admin page
+function filterUsersAdmin() {
+    const searchTerm = document.getElementById('user-search-admin').value.toLowerCase();
+    const statusFilter = document.getElementById('user-status-filter-admin').value;
+    const rows = document.querySelectorAll('.admin-users-table tbody tr');
+    
+    rows.forEach(row => {
+        const name = row.querySelector('.user-info h4').textContent.toLowerCase();
+        const email = row.querySelector('td:nth-child(2) p').textContent.toLowerCase();
+        const status = row.querySelector('.user-status').textContent.toLowerCase();
+        
+        const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
+        const matchesStatus = !statusFilter || status === statusFilter;
+        
+        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+    });
+}
+
+// Filter swaps for admin page
+function filterSwapsAdmin() {
+    const statusFilter = document.getElementById('swap-status-filter-admin').value;
+    const dateFilter = document.getElementById('swap-date-filter-admin').value;
+    const rows = document.querySelectorAll('.admin-swaps-table tbody tr');
+    
+    rows.forEach(row => {
+        const status = row.querySelector('.swap-status').textContent.toLowerCase();
+        const date = row.querySelector('td:nth-child(5) p').textContent;
+        
+        const matchesStatus = !statusFilter || status === statusFilter;
+        const matchesDate = !dateFilter || date.includes(dateFilter);
+        
+        row.style.display = matchesStatus && matchesDate ? '' : 'none';
+    });
+}
+
+// View user details for admin
+function viewUserDetailsAdmin(userId) {
+    // This would show detailed user information in a modal
+    showSuccess('User details loaded for user ID: ' + userId);
+}
+
+// View swap details for admin
+function viewSwapDetailsAdmin(swapId) {
+    // This would show detailed swap information in a modal
+    showSuccess('Swap details loaded for swap ID: ' + swapId);
+}
+
+// Edit user for admin
+function editUserAdmin(userId) {
+    // This would open an edit user modal
+    showSuccess('Edit user modal opened for user ID: ' + userId);
+}
+
+// Approve swap for admin
+async function approveSwapAdmin(swapId) {
+    if (!confirm('Are you sure you want to approve this swap?')) return;
+    
+    try {
+        const { error } = await supabase
+            .from(TABLES.SWAP_REQUESTS)
+            .update({ status: 'accepted' })
+            .eq('id', swapId);
+        
+        if (error) throw error;
+        
+        showSuccess('Swap approved successfully');
+        loadAllSwapsAdmin();
+        
+    } catch (error) {
+        showError('Failed to approve swap: ' + error.message);
+    }
+}
+
+// Generate comprehensive report
+async function generateComprehensiveReport() {
+    try {
+        showLoading();
+        
+        // This would generate a comprehensive report with all data
+        setTimeout(() => {
+            hideLoading();
+            showSuccess('Comprehensive report generated successfully!');
+        }, 3000);
+        
+    } catch (error) {
+        hideLoading();
+        showError('Failed to generate comprehensive report: ' + error.message);
+    }
+}
+
+// Make admin functions globally available
+window.loadAllUsers = loadAllUsers;
+window.filterUsers = filterUsers;
+window.loadAllSwaps = loadAllSwaps;
+window.filterSwaps = filterSwaps;
+window.loadPendingReviews = loadPendingReviews;
+window.loadPlatformMessages = loadPlatformMessages;
+window.showSendMessageModal = showSendMessageModal;
+window.showBanUserModal = showBanUserModal;
+window.banUser = banUser;
+window.unbanUser = unbanUser;
+window.deleteSwapAdmin = deleteSwapAdmin;
+window.generateReport = generateReport;
+window.downloadUserReport = downloadUserReport;
+window.downloadSwapReport = downloadSwapReport;
+window.downloadFeedbackReport = downloadFeedbackReport;
+window.viewUserDetails = viewUserDetails;
+window.viewSwapDetails = viewSwapDetails;
+window.approveSkill = approveSkill;
+window.rejectSkill = rejectSkill;
+window.handlePlatformMessage = handlePlatformMessage;
+window.handleBanUser = handleBanUser;
+window.switchModerationTab = switchModerationTab;
+
+// Make new admin functions globally available
+window.switchAdminTab = switchAdminTab;
+window.loadAllUsersAdmin = loadAllUsersAdmin;
+window.loadAllSwapsAdmin = loadAllSwapsAdmin;
+window.filterUsersAdmin = filterUsersAdmin;
+window.filterSwapsAdmin = filterSwapsAdmin;
+window.viewUserDetailsAdmin = viewUserDetailsAdmin;
+window.viewSwapDetailsAdmin = viewSwapDetailsAdmin;
+window.editUserAdmin = editUserAdmin;
+window.approveSwapAdmin = approveSwapAdmin;
+window.generateComprehensiveReport = generateComprehensiveReport; 

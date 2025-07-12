@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Skill Swap Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .admin-dashboard {
+            padding: 2rem 0;
+        }
+        .admin-section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .admin-section h2 {
+            margin-bottom: 1.5rem;
+            color: #333;
+            font-size: 1.5rem;
+        }
+        .admin-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-card h3 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        .stat-card p {
+            opacity: 0.9;
+            margin: 0;
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .admin-table th,
+        .admin-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .admin-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        .admin-table tr:hover {
+            background: #f8f9fa;
+        }
+        .admin-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        .moderation-tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 2rem;
+        }
+        .moderation-tabs .tab-btn {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .moderation-tabs .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .moderation-tabs .tab-btn:hover {
+            color: #667eea;
+        }
+        .moderation-content {
+            display: none;
+        }
+        .moderation-content.active {
+            display: block;
+        }
+        .platform-message-form {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        .platform-message-form textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            resize: vertical;
+        }
+        .ban-user-form {
+            background: #fff3cd;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            border: 1px solid #ffeaa7;
+        }
+        .ban-user-form select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        .reports-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        .report-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
+        }
+        .report-card h3 {
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        .report-card p {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-badge.accepted {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .status-badge.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-badge.cancelled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-badge.banned {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .messages-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .message-item {
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        .message-item h4 {
+            margin: 0 0 0.5rem 0;
+            color: #333;
+        }
+        .message-item p {
+            margin: 0;
+            color: #666;
+        }
+        .message-meta {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-dashboard">
+        <div class="container">
+            <h1><i class="fas fa-shield-alt"></i> Admin Control Panel</h1>
+            
+            <div id="message"></div>
+            
+            <!-- Overview Stats -->
+            <div class="admin-section">
+                <h2>Platform Overview</h2>
+                <div class="admin-stats">
+                    <div class="stat-card">
+                        <h3 id="total-users">0</h3>
+                        <p>Total Users</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-swaps">0</h3>
+                        <p>Total Swaps</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="pending-swaps">0</h3>
+                        <p>Pending Swaps</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="banned-users">0</h3>
+                        <p>Banned Users</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Moderation Tabs -->
+            <div class="moderation-tabs">
+                <button class="tab-btn active" data-tab="users">User Management</button>
+                <button class="tab-btn" data-tab="swaps">Swap Monitoring</button>
+                <button class="tab-btn" data-tab="content">Content Moderation</button>
+                <button class="tab-btn" data-tab="messages">Platform Messages</button>
+                <button class="tab-btn" data-tab="reports">Reports</button>
+            </div>
+
+            <!-- User Management Tab -->
+            <div id="users-tab" class="moderation-content active">
+                <div class="admin-section">
+                    <h2>User Management</h2>
+                    <div class="ban-user-form">
+                        <h3>Ban User</h3>
+                        <select id="ban-user-select">
+                            <option value="">Select user to ban...</option>
+                        </select>
+                        <button class="btn btn-danger" onclick="banSelectedUser()">Ban User</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Location</th>
+                                    <th>Skills Offered</th>
+                                    <th>Skills Wanted</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <!-- Users will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Swap Monitoring Tab -->
+            <div id="swaps-tab" class="moderation-content">
+                <div class="admin-section">
+                    <h2>Swap Monitoring</h2>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Requester</th>
+                                    <th>Provider</th>
+                                    <th>Requested Skill</th>
+                                    <th>Offered Skill</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="swaps-table-body">
+                                <!-- Swaps will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Moderation Tab -->
+            <div id="content-tab" class="moderation-content">
+                <div class="admin-section">
+                    <h2>Content Moderation</h2>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Content Type</th>
+                                    <th>Content</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="content-table-body">
+                                <!-- Content for moderation will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Platform Messages Tab -->
+            <div id="messages-tab" class="moderation-content">
+                <div class="admin-section">
+                    <h2>Platform Messages</h2>
+                    <div class="platform-message-form">
+                        <h3>Send Platform Message</h3>
+                        <textarea id="platform-message" placeholder="Enter your platform-wide message here..."></textarea>
+                        <button class="btn btn-primary" onclick="sendPlatformMessage()">Send Message</button>
+                    </div>
+                    <div class="messages-list" id="messages-list">
+                        <!-- Platform messages will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="reports-tab" class="moderation-content">
+                <div class="admin-section">
+                    <h2>Platform Reports</h2>
+                    <div class="reports-section">
+                        <div class="report-card">
+                            <h3>User Activity Report</h3>
+                            <p>Download comprehensive user data and activity statistics</p>
+                            <button class="btn btn-primary" onclick="downloadUserReport()">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                        </div>
+                        <div class="report-card">
+                            <h3>Swap Statistics Report</h3>
+                            <p>Download all swap transactions and analytics</p>
+                            <button class="btn btn-primary" onclick="downloadSwapReport()">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                        </div>
+                        <div class="report-card">
+                            <h3>Feedback Log Report</h3>
+                            <p>Download user feedback and ratings data</p>
+                            <button class="btn btn-primary" onclick="downloadFeedbackReport()">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        let supabase;
+        let allUsers = [];
+        let allSwaps = [];
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Admin panel loading...');
+            
+            try {
+                // Check if config exists
+                if (!SUPABASE_CONFIG || !SUPABASE_CONFIG.url || SUPABASE_CONFIG.url === 'YOUR_SUPABASE_URL') {
+                    showMessage('Please configure your Supabase credentials in config.js', 'error');
+                    return;
+                }
+                
+                // Initialize Supabase
+                supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anon_key);
+                console.log('Supabase initialized');
+                
+                // Load data
+                loadAllData();
+                
+                // Setup tab switching
+                setupTabSwitching();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Failed to initialize: ' + error.message, 'error');
+            }
+        });
+
+        // Setup tab switching
+        function setupTabSwitching() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const tab = e.target.dataset.tab;
+                    
+                    // Update active tab
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    
+                    // Show tab content
+                    document.querySelectorAll('.moderation-content').forEach(content => content.classList.remove('active'));
+                    document.getElementById(`${tab}-tab`).classList.add('active');
+                });
+            });
+        }
+        
+        // Load all data
+        async function loadAllData() {
+            try {
+                console.log('Loading data...');
+                
+                // Load users
+                await loadUsers();
+                
+                // Load swaps
+                await loadSwaps();
+                
+                // Load stats
+                await loadStats();
+                
+                console.log('Data loaded successfully');
+                
+                // Show success message
+                showMessage('Admin panel loaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showMessage('Failed to load data: ' + error.message, 'error');
+                
+                // Set fallback values
+                document.getElementById('total-users').textContent = 'Error';
+                document.getElementById('total-swaps').textContent = 'Error';
+                document.getElementById('pending-swaps').textContent = 'Error';
+                document.getElementById('banned-users').textContent = 'Error';
+            }
+        }
+        
+        // Load users
+        async function loadUsers() {
+            try {
+                console.log('Loading users...');
+                
+                const { data: users, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.error('Supabase error loading users:', error);
+                    throw error;
+                }
+                
+                allUsers = users || [];
+                console.log('Users loaded successfully:', allUsers.length);
+                console.log('Sample user:', allUsers[0]);
+                
+                // Update user select for banning
+                updateBanUserSelect();
+                
+                // Display users
+                displayUsers();
+                
+            } catch (error) {
+                console.error('Error in loadUsers:', error);
+                showMessage('Failed to load users: ' + error.message, 'error');
+                throw error;
+            }
+        }
+        
+        // Load swaps
+        async function loadSwaps() {
+            try {
+                console.log('Loading swaps...');
+                
+                const { data: swaps, error } = await supabase
+                    .from('swap_requests')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.error('Supabase error loading swaps:', error);
+                    throw error;
+                }
+                
+                allSwaps = swaps || [];
+                console.log('Swaps loaded successfully:', allSwaps.length);
+                console.log('Sample swap:', allSwaps[0]);
+                
+                // Display swaps
+                displaySwaps();
+                
+            } catch (error) {
+                console.error('Error in loadSwaps:', error);
+                showMessage('Failed to load swaps: ' + error.message, 'error');
+                throw error;
+            }
+        }
+        
+        // Load statistics
+        async function loadStats() {
+            try {
+                console.log('Loading stats...');
+                console.log('All users:', allUsers.length);
+                console.log('All swaps:', allSwaps.length);
+                
+                // Update user count
+                const totalUsersElement = document.getElementById('total-users');
+                if (totalUsersElement) {
+                    totalUsersElement.textContent = allUsers.length;
+                    console.log('Updated total users:', allUsers.length);
+                } else {
+                    console.error('total-users element not found');
+                }
+                
+                // Update swap counts
+                const totalSwapsElement = document.getElementById('total-swaps');
+                if (totalSwapsElement) {
+                    totalSwapsElement.textContent = allSwaps.length;
+                    console.log('Updated total swaps:', allSwaps.length);
+                } else {
+                    console.error('total-swaps element not found');
+                }
+                
+                const pendingSwapsElement = document.getElementById('pending-swaps');
+                if (pendingSwapsElement) {
+                    const pendingCount = allSwaps.filter(s => s.status === 'pending').length;
+                    pendingSwapsElement.textContent = pendingCount;
+                    console.log('Updated pending swaps:', pendingCount);
+                } else {
+                    console.error('pending-swaps element not found');
+                }
+                
+                // Count banned users
+                const bannedUsersElement = document.getElementById('banned-users');
+                if (bannedUsersElement) {
+                    const bannedCount = allUsers.filter(u => u.banned).length;
+                    bannedUsersElement.textContent = bannedCount;
+                    console.log('Updated banned users:', bannedCount);
+                } else {
+                    console.error('banned-users element not found');
+                }
+                
+                console.log('Stats loaded successfully');
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                throw error;
+            }
+        }
+        
+        // Update ban user select
+        function updateBanUserSelect() {
+            const select = document.getElementById('ban-user-select');
+            select.innerHTML = '<option value="">Select user to ban...</option>';
+            
+            allUsers.filter(user => !user.banned).forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.user_id;
+                option.textContent = `${user.name || 'Unknown'} (${user.email || 'No email'})`;
+                select.appendChild(option);
+            });
+        }
+        
+        // Display users
+        function displayUsers() {
+            const tbody = document.getElementById('users-table-body');
+            
+            if (!allUsers || allUsers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No users found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = allUsers.map(user => `
+                <tr>
+                    <td>${user.name || 'N/A'}</td>
+                    <td>${user.email || 'N/A'}</td>
+                    <td>${user.location || 'N/A'}</td>
+                    <td>${(user.skills_offered || []).join(', ') || 'None'}</td>
+                    <td>${(user.skills_wanted || []).join(', ') || 'None'}</td>
+                    <td>
+                        <span class="status-badge ${user.banned ? 'banned' : 'active'}">
+                            ${user.banned ? 'Banned' : 'Active'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="admin-actions">
+                            ${user.banned ? 
+                                `<button class="btn btn-sm btn-success" onclick="unbanUser('${user.user_id}')">Unban</button>` :
+                                `<button class="btn btn-sm btn-danger" onclick="banUser('${user.user_id}')">Ban</button>`
+                            }
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.user_id}', '${user.name || 'User'}')">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // Display swaps
+        function displaySwaps() {
+            const tbody = document.getElementById('swaps-table-body');
+            
+            if (!allSwaps || allSwaps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No swaps found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = allSwaps.map(swap => `
+                <tr>
+                    <td>${swap.id}</td>
+                    <td>${getUserName(swap.requester_id)}</td>
+                    <td>${getUserName(swap.target_user_id)}</td>
+                    <td>${swap.requested_skill || 'N/A'}</td>
+                    <td>${swap.offered_skill || 'N/A'}</td>
+                    <td>
+                        <span class="status-badge ${swap.status}">
+                            ${swap.status}
+                        </span>
+                    </td>
+                    <td>${new Date(swap.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <div class="admin-actions">
+                            <button class="btn btn-sm btn-danger" onclick="deleteSwap('${swap.id}')">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        // Get user name by ID
+        function getUserName(userId) {
+            const user = allUsers.find(u => u.user_id === userId);
+            return user ? (user.name || 'Unknown') : 'Unknown';
+        }
+        
+        // Ban user
+        async function banUser(userId) {
+            if (!confirm('Are you sure you want to ban this user?')) {
+                return;
+            }
+            
+            try {
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ banned: true })
+                    .eq('user_id', userId);
+                
+                if (error) throw error;
+                
+                showMessage('User banned successfully', 'success');
+                await loadAllData();
+                
+            } catch (error) {
+                console.error('Error banning user:', error);
+                showMessage('Failed to ban user: ' + error.message, 'error');
+            }
+        }
+        
+        // Unban user
+        async function unbanUser(userId) {
+            if (!confirm('Are you sure you want to unban this user?')) {
+                return;
+            }
+            
+            try {
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ banned: false })
+                    .eq('user_id', userId);
+                
+                if (error) throw error;
+                
+                showMessage('User unbanned successfully', 'success');
+                await loadAllData();
+                
+            } catch (error) {
+                console.error('Error unbanning user:', error);
+                showMessage('Failed to unban user: ' + error.message, 'error');
+            }
+        }
+        
+        // Ban selected user
+        async function banSelectedUser() {
+            const select = document.getElementById('ban-user-select');
+            const userId = select.value;
+            
+            if (!userId) {
+                showMessage('Please select a user to ban', 'error');
+                return;
+            }
+            
+            await banUser(userId);
+        }
+        
+        // Delete user
+        async function deleteUser(userId, userName) {
+            if (!confirm(`Are you sure you want to delete user "${userName}"?`)) {
+                return;
+            }
+            
+            try {
+                // Delete user's swap requests first
+                const { error: swapError } = await supabase
+                    .from('swap_requests')
+                    .delete()
+                    .or(`requester_id.eq.${userId},target_user_id.eq.${userId}`);
+                
+                if (swapError) {
+                    console.error('Error deleting swaps:', swapError);
+                }
+                
+                // Delete user's profile
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .delete()
+                    .eq('user_id', userId);
+                
+                if (profileError) throw profileError;
+                
+                showMessage(`User "${userName}" deleted successfully`, 'success');
+                await loadAllData();
+                
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showMessage('Failed to delete user: ' + error.message, 'error');
+            }
+        }
+        
+        // Delete swap
+        async function deleteSwap(swapId) {
+            if (!confirm('Are you sure you want to delete this swap?')) {
+                return;
+            }
+            
+            try {
+                const { error } = await supabase
+                    .from('swap_requests')
+                    .delete()
+                    .eq('id', swapId);
+                
+                if (error) throw error;
+                
+                showMessage('Swap deleted successfully', 'success');
+                await loadAllData();
+                
+            } catch (error) {
+                console.error('Error deleting swap:', error);
+                showMessage('Failed to delete swap: ' + error.message, 'error');
+            }
+        }
+        
+        // Send platform message
+        async function sendPlatformMessage() {
+            const message = document.getElementById('platform-message').value.trim();
+            
+            if (!message) {
+                showMessage('Please enter a message', 'error');
+                return;
+            }
+            
+            try {
+                // Create a notifications table entry for all users
+                const { error } = await supabase
+                    .from('notifications')
+                    .insert([{
+                        type: 'platform_message',
+                        title: 'Platform Message',
+                        message: message,
+                        data: { from_admin: true }
+                    }]);
+                
+                if (error) throw error;
+                
+                showMessage('Platform message sent successfully', 'success');
+                document.getElementById('platform-message').value = '';
+                
+            } catch (error) {
+                console.error('Error sending platform message:', error);
+                showMessage('Failed to send platform message: ' + error.message, 'error');
+            }
+        }
+        
+        // Download reports
+        function downloadUserReport() {
+            const csvContent = generateUserCSV();
+            downloadCSV(csvContent, 'user_activity_report.csv');
+        }
+        
+        function downloadSwapReport() {
+            const csvContent = generateSwapCSV();
+            downloadCSV(csvContent, 'swap_statistics_report.csv');
+        }
+        
+        function downloadFeedbackReport() {
+            const csvContent = generateFeedbackCSV();
+            downloadCSV(csvContent, 'feedback_log_report.csv');
+        }
+        
+        // Generate CSV content
+        function generateUserCSV() {
+            const headers = ['Name', 'Email', 'Location', 'Skills Offered', 'Skills Wanted', 'Status', 'Created At'];
+            const rows = allUsers.map(user => [
+                user.name || 'N/A',
+                user.email || 'N/A',
+                user.location || 'N/A',
+                (user.skills_offered || []).join('; '),
+                (user.skills_wanted || []).join('; '),
+                user.banned ? 'Banned' : 'Active',
+                new Date(user.created_at).toLocaleDateString()
+            ]);
+            
+            return [headers, ...rows].map(row => row.join(',')).join('\n');
+        }
+        
+        function generateSwapCSV() {
+            const headers = ['ID', 'Requester', 'Provider', 'Requested Skill', 'Offered Skill', 'Status', 'Created At'];
+            const rows = allSwaps.map(swap => [
+                swap.id,
+                getUserName(swap.requester_id),
+                getUserName(swap.target_user_id),
+                swap.requested_skill || 'N/A',
+                swap.offered_skill || 'N/A',
+                swap.status,
+                new Date(swap.created_at).toLocaleDateString()
+            ]);
+            
+            return [headers, ...rows].map(row => row.join(',')).join('\n');
+        }
+        
+        function generateFeedbackCSV() {
+            const headers = ['User', 'Rating', 'Feedback', 'Date'];
+            // This would need to be implemented when feedback data is available
+            const rows = [['Sample User', '5', 'Great experience', '2024-01-01']];
+            
+            return [headers, ...rows].map(row => row.join(',')).join('\n');
+        }
+        
+        // Download CSV file
+        function downloadCSV(content, filename) {
+            const blob = new Blob([content], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+        
+        // Show message
+        function showMessage(message, type) {
+            const container = document.getElementById('message');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            
+            // Clear success messages after 3 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 3000);
+            }
+        }
+        
+        // Test function to manually update stats
+        function testStats() {
+            console.log('Testing stats update...');
+            console.log('Current allUsers:', allUsers);
+            console.log('Current allSwaps:', allSwaps);
+            
+            // Force update stats
+            loadStats();
+        }
+        
+        // Add test button to page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add test button after a delay
+            setTimeout(() => {
+                const testButton = document.createElement('button');
+                testButton.textContent = 'Test Stats';
+                testButton.style.position = 'fixed';
+                testButton.style.top = '10px';
+                testButton.style.right = '10px';
+                testButton.style.zIndex = '9999';
+                testButton.onclick = testStats;
+                document.body.appendChild(testButton);
+            }, 2000);
+        });
+    </script>
+</body>
+</html> 

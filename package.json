@@ -1,0 +1,16 @@
+{
+  "name": "skill-swap-platform",
+  "version": "1.0.0",
+  "description": "A platform for swapping skills between users",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "keywords": ["skill-swap", "web-app"],
+  "author": "Your Name",
+  "license": "MIT"
+} 

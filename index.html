@@ -22,6 +22,7 @@
                 <a href="#" class="nav-link" data-page="profile">Profile</a>
                 <a href="#" class="nav-link" data-page="swaps">My Swaps</a>
                 <a href="#" class="nav-link admin-only" data-page="admin" style="display: none;">Admin</a>
+                <a href="#" class="nav-link admin-only" data-page="admin-dashboard" style="display: none;">Admin Dashboard</a>
                 <button class="auth-btn" id="auth-btn">Login</button>
             </div>
             <div class="nav-toggle" id="nav-toggle">
@@ -249,38 +250,326 @@
 
         <!-- Admin Page -->
         <div id="admin-page" class="page">
-            <div class="admin-container">
-                <div class="admin-header">
-                    <h2>Admin Dashboard</h2>
+            <div class="admin-main-container">
+                <div class="admin-main-header">
+                    <h2><i class="fas fa-shield-alt"></i> Admin Control Center</h2>
+                    <p>Complete platform management and monitoring</p>
                 </div>
                 
-                <div class="admin-stats">
-                    <div class="admin-stat">
-                        <h3>Total Users</h3>
-                        <span id="admin-user-count">0</span>
-                    </div>
-                    <div class="admin-stat">
-                        <h3>Pending Swaps</h3>
-                        <span id="admin-pending-swaps">0</span>
-                    </div>
-                    <div class="admin-stat">
-                        <h3>Total Swaps</h3>
-                        <span id="admin-total-swaps">0</span>
-                    </div>
+                <!-- Admin Navigation Tabs -->
+                <div class="admin-nav-tabs">
+                    <button class="admin-tab-btn active" data-tab="overview">
+                        <i class="fas fa-chart-line"></i> Overview
+                    </button>
+                    <button class="admin-tab-btn" data-tab="users">
+                        <i class="fas fa-users"></i> All Users
+                    </button>
+                    <button class="admin-tab-btn" data-tab="swaps">
+                        <i class="fas fa-exchange-alt"></i> All Swaps
+                    </button>
+                    <button class="admin-tab-btn" data-tab="reports">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </button>
                 </div>
                 
-                <div class="admin-sections">
-                    <div class="admin-section">
-                        <h3>User Management</h3>
-                        <div class="admin-table" id="users-table">
-                            <!-- Users table will be loaded here -->
+                <!-- Overview Tab -->
+                <div id="overview-tab" class="admin-tab-content active">
+                    <div class="admin-overview-stats">
+                        <div class="overview-stat-card">
+                            <i class="fas fa-users"></i>
+                            <div>
+                                <h3 id="total-users-overview">0</h3>
+                                <p>Total Users</p>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <i class="fas fa-exchange-alt"></i>
+                            <div>
+                                <h3 id="total-swaps-overview">0</h3>
+                                <p>Total Swaps</p>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <h3 id="pending-swaps-overview">0</h3>
+                                <p>Pending Swaps</p>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <i class="fas fa-check-circle"></i>
+                            <div>
+                                <h3 id="completed-swaps-overview">0</h3>
+                                <p>Completed Swaps</p>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <i class="fas fa-star"></i>
+                            <div>
+                                <h3 id="avg-rating-overview">0.0</h3>
+                                <p>Avg Rating</p>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <i class="fas fa-ban"></i>
+                            <div>
+                                <h3 id="banned-users-overview">0</h3>
+                                <p>Banned Users</p>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="admin-section">
-                        <h3>Recent Activity</h3>
-                        <div class="admin-table" id="activity-table">
-                            <!-- Activity table will be loaded here -->
+                    <div class="admin-overview-charts">
+                        <div class="chart-section">
+                            <h3>Recent Activity</h3>
+                            <div class="recent-activity-list" id="recent-activity">
+                                <!-- Recent activity will be loaded here -->
+                            </div>
+                        </div>
+                        
+                        <div class="chart-section">
+                            <h3>Quick Actions</h3>
+                            <div class="quick-actions">
+                                <button class="quick-action-btn" onclick="loadAllUsers()">
+                                    <i class="fas fa-users"></i>
+                                    <span>Manage Users</span>
+                                </button>
+                                <button class="quick-action-btn" onclick="loadAllSwaps()">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    <span>View Swaps</span>
+                                </button>
+                                <button class="quick-action-btn" onclick="showSendMessageModal()">
+                                    <i class="fas fa-bullhorn"></i>
+                                    <span>Send Message</span>
+                                </button>
+                                <button class="quick-action-btn" onclick="generateReport()">
+                                    <i class="fas fa-download"></i>
+                                    <span>Generate Report</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Users Tab -->
+                <div id="users-tab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h3><i class="fas fa-users"></i> All Users Management</h3>
+                        <div class="admin-actions">
+                            <input type="text" id="user-search-admin" placeholder="Search users..." onkeyup="filterUsersAdmin()">
+                            <select id="user-status-filter-admin" onchange="filterUsersAdmin()">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="banned">Banned</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="loadAllUsersAdmin()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="admin-users-container" id="admin-users-container">
+                        <!-- Users will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Swaps Tab -->
+                <div id="swaps-tab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h3><i class="fas fa-exchange-alt"></i> All Swaps Management</h3>
+                        <div class="admin-actions">
+                            <select id="swap-status-filter-admin" onchange="filterSwapsAdmin()">
+                                <option value="">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="accepted">Accepted</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                            <input type="date" id="swap-date-filter-admin" onchange="filterSwapsAdmin()">
+                            <button class="btn btn-primary" onclick="loadAllSwapsAdmin()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="admin-swaps-container" id="admin-swaps-container">
+                        <!-- Swaps will be loaded here -->
+                    </div>
+                </div>
+                
+                <!-- Reports Tab -->
+                <div id="reports-tab" class="admin-tab-content">
+                    <div class="admin-section-header">
+                        <h3><i class="fas fa-chart-bar"></i> Reports & Analytics</h3>
+                    </div>
+                    
+                    <div class="reports-grid">
+                        <div class="report-card" onclick="downloadUserReport()">
+                            <i class="fas fa-users"></i>
+                            <h4>User Activity Report</h4>
+                            <p>Complete user registration, activity, and profile data</p>
+                        </div>
+                        <div class="report-card" onclick="downloadSwapReport()">
+                            <i class="fas fa-exchange-alt"></i>
+                            <h4>Swap Statistics Report</h4>
+                            <p>Detailed swap completion rates and success metrics</p>
+                        </div>
+                        <div class="report-card" onclick="downloadFeedbackReport()">
+                            <i class="fas fa-star"></i>
+                            <h4>Feedback Report</h4>
+                            <p>User ratings, feedback, and satisfaction data</p>
+                        </div>
+                        <div class="report-card" onclick="generateComprehensiveReport()">
+                            <i class="fas fa-file-alt"></i>
+                            <h4>Comprehensive Report</h4>
+                            <p>Complete platform analytics and insights</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard Page -->
+        <div id="admin-dashboard" class="page">
+            <div class="admin-dashboard-container">
+                <div class="admin-dashboard-header">
+                    <h2><i class="fas fa-shield-alt"></i> Admin Control Panel</h2>
+                    <p>Manage platform users, content, and system settings</p>
+                </div>
+                
+                <div class="admin-dashboard-stats">
+                    <div class="admin-stat-card">
+                        <i class="fas fa-users"></i>
+                        <div>
+                            <h3 id="admin-total-users">0</h3>
+                            <p>Total Users</p>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <i class="fas fa-exchange-alt"></i>
+                        <div>
+                            <h3 id="admin-total-swaps-dashboard">0</h3>
+                            <p>Total Swaps</p>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <i class="fas fa-clock"></i>
+                        <div>
+                            <h3 id="admin-pending-swaps-dashboard">0</h3>
+                            <p>Pending Swaps</p>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <i class="fas fa-ban"></i>
+                        <div>
+                            <h3 id="admin-banned-users">0</h3>
+                            <p>Banned Users</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="admin-dashboard-sections">
+                    <!-- User Management Section -->
+                    <div class="admin-section-card">
+                        <div class="section-header">
+                            <h3><i class="fas fa-user-cog"></i> User Management</h3>
+                            <button class="btn btn-primary" onclick="loadAllUsers()">Refresh</button>
+                        </div>
+                        <div class="section-content">
+                            <div class="user-filters">
+                                <input type="text" id="user-search" placeholder="Search users..." onkeyup="filterUsers()">
+                                <select id="user-status-filter" onchange="filterUsers()">
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="banned">Banned</option>
+                                </select>
+                            </div>
+                            <div class="users-table-container" id="all-users-table">
+                                <!-- Users will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Moderation Section -->
+                    <div class="admin-section-card">
+                        <div class="section-header">
+                            <h3><i class="fas fa-flag"></i> Content Moderation</h3>
+                            <button class="btn btn-primary" onclick="loadPendingReviews()">Refresh</button>
+                        </div>
+                        <div class="section-content">
+                            <div class="moderation-tabs">
+                                <button class="tab-btn active" data-tab="skills">Skills Review</button>
+                                <button class="tab-btn" data-tab="reports">User Reports</button>
+                            </div>
+                            <div id="skills-review" class="moderation-content active">
+                                <!-- Skills pending review -->
+                            </div>
+                            <div id="user-reports" class="moderation-content">
+                                <!-- User reports -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Swap Management Section -->
+                    <div class="admin-section-card">
+                        <div class="section-header">
+                            <h3><i class="fas fa-exchange-alt"></i> Swap Management</h3>
+                            <button class="btn btn-primary" onclick="loadAllSwaps()">Refresh</button>
+                        </div>
+                        <div class="section-content">
+                            <div class="swap-filters">
+                                <select id="swap-status-filter" onchange="filterSwaps()">
+                                    <option value="">All Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="accepted">Accepted</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                                <input type="date" id="swap-date-filter" onchange="filterSwaps()">
+                            </div>
+                            <div class="swaps-table-container" id="all-swaps-table">
+                                <!-- Swaps will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Platform Messages Section -->
+                    <div class="admin-section-card">
+                        <div class="section-header">
+                            <h3><i class="fas fa-bullhorn"></i> Platform Messages</h3>
+                            <button class="btn btn-primary" onclick="showSendMessageModal()">Send Message</button>
+                        </div>
+                        <div class="section-content">
+                            <div class="messages-list" id="platform-messages">
+                                <!-- Platform messages will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Reports Section -->
+                    <div class="admin-section-card">
+                        <div class="section-header">
+                            <h3><i class="fas fa-chart-bar"></i> Reports & Analytics</h3>
+                            <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+                        </div>
+                        <div class="section-content">
+                            <div class="reports-grid">
+                                <div class="report-card" onclick="downloadUserReport()">
+                                    <i class="fas fa-users"></i>
+                                    <h4>User Activity Report</h4>
+                                    <p>Download user registration and activity data</p>
+                                </div>
+                                <div class="report-card" onclick="downloadSwapReport()">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    <h4>Swap Statistics Report</h4>
+                                    <p>Download swap completion and success rates</p>
+                                </div>
+                                <div class="report-card" onclick="downloadFeedbackReport()">
+                                    <i class="fas fa-star"></i>
+                                    <h4>Feedback Report</h4>
+                                    <p>Download user feedback and ratings data</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -381,6 +670,71 @@
                 </div>
                 <button type="submit">Submit Feedback</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Admin Modals -->
+    <div id="send-message-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3><i class="fas fa-bullhorn"></i> Send Platform Message</h3>
+            <form id="platform-message-form">
+                <div class="form-group">
+                    <label for="message-title">Message Title</label>
+                    <input type="text" id="message-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="message-content">Message Content</label>
+                    <textarea id="message-content" rows="5" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="message-type">Message Type</label>
+                    <select id="message-type" required>
+                        <option value="info">Information</option>
+                        <option value="warning">Warning</option>
+                        <option value="update">Update</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <button type="submit">Send Message</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="ban-user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3><i class="fas fa-ban"></i> Ban User</h3>
+            <form id="ban-user-form">
+                <div class="form-group">
+                    <label for="ban-reason">Reason for Ban</label>
+                    <textarea id="ban-reason" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="ban-duration">Ban Duration</label>
+                    <select id="ban-duration" required>
+                        <option value="temporary">Temporary (7 days)</option>
+                        <option value="permanent">Permanent</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-danger">Ban User</button>
+                <button type="button" class="btn btn-secondary" onclick="hideModals()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="review-skill-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3><i class="fas fa-flag"></i> Review Skill</h3>
+            <div id="skill-review-content">
+                <!-- Skill review content will be loaded here -->
+            </div>
+            <div class="review-actions">
+                <button class="btn btn-success" onclick="approveSkill()">Approve</button>
+                <button class="btn btn-warning" onclick="rejectSkill()">Reject</button>
+                <button class="btn btn-secondary" onclick="hideModals()">Cancel</button>
+            </div>
         </div>
     </div>
 
