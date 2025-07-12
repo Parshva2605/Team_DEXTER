@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Swap Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-exchange-alt"></i>
+                <span>Skill Swap</span>
+            </div>
+            <div class="nav-menu" id="nav-menu">
+                <a href="#" class="nav-link" data-page="home">Home</a>
+                <a href="#" class="nav-link" data-page="discover">Discover</a>
+                <a href="#" class="nav-link" data-page="profile">Profile</a>
+                <a href="#" class="nav-link" data-page="swaps">My Swaps</a>
+                <a href="#" class="nav-link admin-only" data-page="admin" style="display: none;">Admin</a>
+                <button class="auth-btn" id="auth-btn">Login</button>
+            </div>
+            <div class="nav-toggle" id="nav-toggle">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Page -->
+        <div id="home-page" class="page active">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1>Swap Skills, Grow Together</h1>
+                    <p>Connect with people who have the skills you need and offer your expertise in return. Build a community of learners and teachers.</p>
+                    <button class="cta-btn" onclick="showPage('discover')">Start Discovering</button>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <i class="fas fa-users"></i>
+                        <span id="user-count">0</span>
+                        <p>Active Users</p>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-handshake"></i>
+                        <span id="swap-count">0</span>
+                        <p>Successful Swaps</p>
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-star"></i>
+                        <span id="rating-avg">0.0</span>
+                        <p>Avg Rating</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Discover Page -->
+        <div id="discover-page" class="page">
+            <div class="page-header">
+                <h2>Discover Skills</h2>
+                <div class="search-filters">
+                    <div class="search-box">
+                        <input type="text" id="skill-search" placeholder="Search for skills...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="filters">
+                        <select id="availability-filter">
+                            <option value="">All Availability</option>
+                            <option value="weekends">Weekends</option>
+                            <option value="evenings">Evenings</option>
+                            <option value="weekdays">Weekdays</option>
+                        </select>
+                        <select id="location-filter">
+                            <option value="">All Locations</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="profiles-grid" id="profiles-grid">
+                <!-- Profile cards will be dynamically loaded here -->
+            </div>
+        </div>
+
+        <!-- Profile Page -->
+        <div id="profile-page" class="page">
+            <div class="profile-container">
+                <!-- Profile View Mode -->
+                <div id="profile-view-mode" class="profile-view-mode">
+                    <div class="profile-header">
+                        <div class="profile-photo">
+                            <img id="profile-photo" src="https://via.placeholder.com/150" alt="Profile Photo">
+                            <div class="photo-upload">
+                                <label for="photo-input" class="upload-btn">
+                                    <i class="fas fa-camera"></i>
+                                </label>
+                                <input type="file" id="photo-input" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="profile-info">
+                            <div class="profile-info-header">
+                                <h2 id="profile-name">Your Name</h2>
+                                <button id="edit-profile-btn" class="edit-btn" onclick="toggleProfileEdit()">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </div>
+                            <p id="profile-location">Location</p>
+                            <div class="profile-swaps">
+                                <div class="swap-count-display">
+                                    <i class="fas fa-exchange-alt"></i>
+                                    <span id="profile-swap-count">0 successful swaps</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-details">
+                        <div class="profile-section">
+                            <h3>Skills You Offer</h3>
+                            <div id="profile-skills-offered-display" class="profile-skills-display">
+                                <!-- Skills will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="profile-section">
+                            <h3>Skills You Want</h3>
+                            <div id="profile-skills-wanted-display" class="profile-skills-display">
+                                <!-- Skills will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="profile-section">
+                            <h3>Availability</h3>
+                            <div id="profile-availability-display" class="profile-availability-display">
+                                <!-- Availability will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="profile-section">
+                            <h3>Profile Visibility</h3>
+                            <div id="profile-visibility-display" class="profile-visibility-display">
+                                <!-- Visibility status will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Profile Edit Mode -->
+                <div id="profile-edit-mode" class="profile-edit-mode" style="display: none;">
+                    <div class="profile-edit-header">
+                        <h2>Edit Profile</h2>
+                        <button id="cancel-edit-btn" class="cancel-btn" onclick="toggleProfileEdit()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="profile-form">
+                        <form id="profile-form">
+                            <div class="form-group">
+                                <label for="name">Full Name *</label>
+                                <input type="text" id="name" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="location">Location</label>
+                                <input type="text" id="location" placeholder="City, Country">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Skills You Offer</label>
+                                <div class="skills-input" id="skills-offered">
+                                    <input type="text" placeholder="Add a skill..." id="skill-offered-input">
+                                    <div class="skills-tags" id="skills-offered-tags"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Skills You Want</label>
+                                <div class="skills-input" id="skills-wanted">
+                                    <input type="text" placeholder="Add a skill..." id="skill-wanted-input">
+                                    <div class="skills-tags" id="skills-wanted-tags"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Availability</label>
+                                <div class="availability-options">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="weekends">
+                                        <span>Weekends</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="evenings">
+                                        <span>Evenings</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="weekdays">
+                                        <span>Weekdays</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="public-profile">
+                                    <span>Make profile public</span>
+                                </label>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="submit" class="save-btn">Save Profile</button>
+                                <button type="button" class="btn btn-secondary" onclick="toggleProfileEdit()">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Swaps Page -->
+        <div id="swaps-page" class="page">
+            <div class="swaps-container">
+                <div class="swaps-header">
+                    <h2>My Swap Requests</h2>
+                    <div class="swaps-tabs">
+                        <button class="tab-btn active" data-tab="incoming">Incoming</button>
+                        <button class="tab-btn" data-tab="outgoing">Outgoing</button>
+                    </div>
+                </div>
+                
+                <div class="swaps-content">
+                    <div id="incoming-swaps" class="swaps-list active">
+                        <!-- Incoming swap requests will be loaded here -->
+                    </div>
+                    
+                    <div id="outgoing-swaps" class="swaps-list">
+                        <!-- Outgoing swap requests will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Page -->
+        <div id="admin-page" class="page">
+            <div class="admin-container">
+                <div class="admin-header">
+                    <h2>Admin Dashboard</h2>
+                </div>
+                
+                <div class="admin-stats">
+                    <div class="admin-stat">
+                        <h3>Total Users</h3>
+                        <span id="admin-user-count">0</span>
+                    </div>
+                    <div class="admin-stat">
+                        <h3>Pending Swaps</h3>
+                        <span id="admin-pending-swaps">0</span>
+                    </div>
+                    <div class="admin-stat">
+                        <h3>Total Swaps</h3>
+                        <span id="admin-total-swaps">0</span>
+                    </div>
+                </div>
+                
+                <div class="admin-sections">
+                    <div class="admin-section">
+                        <h3>User Management</h3>
+                        <div class="admin-table" id="users-table">
+                            <!-- Users table will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div class="admin-section">
+                        <h3>Recent Activity</h3>
+                        <div class="admin-table" id="activity-table">
+                            <!-- Activity table will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </main>
+
+    <!-- Modals -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="signup">Sign Up</button>
+            </div>
+            
+            <form id="login-form" class="auth-form active">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit">Login</button>
+            </form>
+            
+            <form id="signup-form" class="auth-form">
+                <div class="form-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="signup-name">Full Name</label>
+                    <input type="text" id="signup-name" required>
+                </div>
+                <button type="submit">Sign Up</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="swap-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Request Skill Swap</h3>
+            <form id="swap-request-form">
+                <div class="form-group">
+                    <label for="swap-offer">I can offer:</label>
+                    <select id="swap-offer" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="swap-request">I want to learn:</label>
+                    <select id="swap-request" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="swap-message">Message (optional):</label>
+                    <textarea id="swap-message" rows="3"></textarea>
+                </div>
+                <button type="submit">Send Request</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="profile-view-modal" class="modal">
+        <div class="modal-content profile-view-content">
+            <span class="close">&times;</span>
+            <div id="profile-view-content">
+                <!-- Profile content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <div id="feedback-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Rate Your Experience</h3>
+            <form id="feedback-form">
+                <div class="form-group">
+                    <label>Rating:</label>
+                    <div class="rating-stars">
+                        <i class="fas fa-star" data-rating="1"></i>
+                        <i class="fas fa-star" data-rating="2"></i>
+                        <i class="fas fa-star" data-rating="3"></i>
+                        <i class="fas fa-star" data-rating="4"></i>
+                        <i class="fas fa-star" data-rating="5"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="feedback-text">Feedback (optional):</label>
+                    <textarea id="feedback-text" rows="3"></textarea>
+                </div>
+                <button type="submit">Submit Feedback</button>
+            </form>
+        </div>
+    </div>
+
+
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
